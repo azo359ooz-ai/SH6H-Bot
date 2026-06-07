@@ -3,10 +3,10 @@ const fetch = (...args) => import('node-fetch').then(({default: fetch}) => fetch
 
 // ===================== إعدادات البوت =====================
 const config = {
-    token: 'ضع_التوكن_هنا',  // ← ضع توكنك هنا
+    token: process.env.DISCORD_TOKEN,  // يقرأ من Railway Variables
     prefix: '!',
     color: '#FF69B4',  // لون وردي
-    newsApiKey: 'ضع_مفتاح_API_هنا', // من newsapi.org (مجاني)
+    newsApiKey: process.env.NEWS_API_KEY || '',
 }
 
 const client = new Client({
