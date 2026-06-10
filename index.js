@@ -193,7 +193,7 @@ client.on('messageCreate', async message => {
         );
 
         const data = await response.json();
-        const aiReply = data.candidates?.[0]?.content?.parts?.[0]?.text || 'معذرة، ما قدرت أجاوب!';
+        const aiReply = data.candidates?.[0]?.content?.parts?.[0]?.text || 'AQ.Ab8RN6IfmXpCdXJLUgl2YPRIJMWu2VAJklpV5J1JBZnLLoD7Eg';
         message.reply(aiReply.substring(0, 1999));
 
     } catch (err) {
