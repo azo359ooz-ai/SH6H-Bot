@@ -54,12 +54,12 @@ client.on('messageCreate', async message => {
             const imageUrl = (attachment.name + attachment.size).toString(); // const imageUrl = attachment.url.split('?')[0]; // إزالة الـ token من الرابط
 
             if (reportedImages.has(imageUrl)) {
-                await message.reply('❌ هذه الصورة مكررة! تم رفضها.');
+                await message.react("❌");
             } else {
                 reportedImages.add(imageUrl);
                 const userId = message.author.id;
                 userReportCount[userId] = (userReportCount[userId] || 0) + 1;
-                await message.reply(`✅ تم تسجيل الصورة! مجموع صورك: **${userReportCount[userId]}**`);
+                await message.react("✅");
             }
         }
     }
