@@ -51,7 +51,7 @@ client.on('messageCreate', async message => {
         const isImage = attachment.contentType?.startsWith('image/');
 
         if (isImage) {
-            const imageUrl = attachment.url.split('?')[0]; // إزالة الـ token من الرابط
+            const imageUrl = (attachment.name + attachment.size).toString(); // const imageUrl = attachment.url.split('?')[0]; // إزالة الـ token من الرابط
 
             if (reportedImages.has(imageUrl)) {
                 await message.reply('❌ هذه الصورة مكررة! تم رفضها.');
