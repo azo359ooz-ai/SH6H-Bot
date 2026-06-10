@@ -1,12 +1,9 @@
 const { Client, GatewayIntentBits, EmbedBuilder, ActivityType } = require('discord.js');
-const fetch = (...args) => import('node-fetch').then(({default: fetch}) => fetch(...args));
 
-// ===================== إعدادات البوت =====================
 const config = {
     token: process.env.DISCORD_TOKEN,
     prefix: '!',
     color: '#FF69B4',
-    geminiKey: process.env.GEMINI_API_KEY || '',
 }
 
 const client = new Client({
@@ -18,13 +15,17 @@ const client = new Client({
     ]
 });
 
+// ===================== نظام التقارير =====================
+const reportedImages = new Set();
+const userReportCount = {};
+
 // ===================== عند تشغيل البوت =====================
 client.once('ready', () => {
     console.log(`✅ البوت ${client.user.tag} شغّال!`);
     client.user.setActivity('🎮 SH6H | !مساعدة', { type: ActivityType.Watching });
 });
 
-// ===================== ترحيب بالأعضاء الجدد (بدون إيموجي) =====================
+// ===================== ترحيب بالأعضاء الجدد =====================
 client.on('guildMemberAdd', member => {
     const channel = member.guild.systemChannel;
     if (!channel) return;
@@ -40,30 +41,86 @@ client.on('guildMemberAdd', member => {
     channel.send({ embeds: [embed] });
 });
 
-// ===================== الأوامر =====================
+// ===================== رصد الصور التلقائي =====================
 client.on('messageCreate', async message => {
     if (message.author.bot) return;
+
+    // رصد الصور التلقائي
+    if (message.attachments.size > 0) {
+        const attachment = message.attachments.first();
+        const isImage = attachment.contentType?.startsWith('image/');
+
+        if (isImage) {
+            const imageUrl = attachment.url.split('?')[0]; // إزالة الـ token من الرابط
+
+            if (reportedImages.has(imageUrl)) {
+                await message.reply('❌ هذه الصورة مكررة! تم رفضها.');
+            } else {
+                reportedImages.add(imageUrl);
+                const userId = message.author.id;
+                userReportCount[userId] = (userReportCount[userId] || 0) + 1;
+                await message.reply(`✅ تم تسجيل الصورة! مجموع صورك: **${userReportCount[userId]}**`);
+            }
+        }
+    }
+
+    // الأوامر
     if (!message.content.startsWith(config.prefix)) return;
 
     const args = message.content.slice(config.prefix.length).trim().split(/ +/);
     const command = args.shift().toLowerCase();
 
-    if (command === 'مساعدة' || command === 'help') {
+    // ────────── !مساعدة ──────────
+    if (command === 'مساعدة') {
         const embed = new EmbedBuilder()
             .setColor(config.color)
             .setTitle('قائمة أوامر بوت SH6H')
             .addFields(
-                { name: 'اخبار الالعاب', value: '`!أخبار`', inline: false },
-                { name: 'العاب', value: '`!تخمين` - `!سؤال`', inline: false },
-                { name: 'متفرقات', value: '`!نرد` - `!اختر` - `!عشوائي`', inline: false },
-                { name: 'معلومات', value: '`!سيرفر` - `!مستخدم`', inline: false },
-                { name: 'ذكاء اصطناعي', value: 'اذكر اسمي SH6H في رسالتك', inline: false },
+                { name: '!أعلى', value: 'أكثر ناس أرسلوا صور', inline: false },
+                { name: '!صوري', value: 'كم صورة أرسلت', inline: false },
+                { name: '!تخمين', value: 'لعبة تخمين الرقم', inline: false },
+                { name: '!سؤال', value: 'سؤال ثقافة ألعاب', inline: false },
+                { name: '!نرد', value: 'رمي النرد', inline: false },
+                { name: '!سيرفر', value: 'معلومات السيرفر', inline: false },
+                { name: '!مستخدم', value: 'معلوماتك', inline: false },
             )
             .setFooter({ text: 'SH6H Bot' })
             .setTimestamp();
         message.reply({ embeds: [embed] });
     }
 
+    // ────────── !أعلى ──────────
+    else if (command === 'أعلى') {
+        if (Object.keys(userReportCount).length === 0) {
+            return message.reply('ما في أحد أرسل صور بعد!');
+        }
+
+        const sorted = Object.entries(userReportCount)
+            .sort((a, b) => b[1] - a[1])
+            .slice(0, 10);
+
+        const embed = new EmbedBuilder()
+            .setColor(config.color)
+            .setTitle('أكثر ناس أرسلوا صور')
+            .setTimestamp();
+
+        let description = '';
+        for (let i = 0; i < sorted.length; i++) {
+            const [userId, count] = sorted[i];
+            description += `**${i + 1}.** <@${userId}> - **${count}** صورة\n`;
+        }
+
+        embed.setDescription(description);
+        message.reply({ embeds: [embed] });
+    }
+
+    // ────────── !صوري ──────────
+    else if (command === 'صوري') {
+        const count = userReportCount[message.author.id] || 0;
+        message.reply(`أرسلت **${count}** صورة حتى الآن!`);
+    }
+
+    // ────────── !تخمين ──────────
     else if (command === 'تخمين') {
         const number = Math.floor(Math.random() * 10) + 1;
         const embed = new EmbedBuilder()
@@ -86,6 +143,7 @@ client.on('messageCreate', async message => {
         });
     }
 
+    // ────────── !سؤال ──────────
     else if (command === 'سؤال') {
         const questions = [
             { q: 'وش أول لعبة GTA طلعت؟', a: 'gta 1' },
@@ -96,7 +154,7 @@ client.on('messageCreate', async message => {
         const random = questions[Math.floor(Math.random() * questions.length)];
         const embed = new EmbedBuilder()
             .setColor(config.color)
-            .setTitle('سؤال ثقافة العاب!')
+            .setTitle('سؤال ثقافة ألعاب!')
             .setDescription(random.q)
             .setFooter({ text: 'عندك 30 ثانية تجاوب!' });
         message.reply({ embeds: [embed] });
@@ -112,23 +170,13 @@ client.on('messageCreate', async message => {
         });
     }
 
+    // ────────── !نرد ──────────
     else if (command === 'نرد') {
         const result = Math.floor(Math.random() * 6) + 1;
         message.reply(`رميت النرد وطلع: **${result}**`);
     }
 
-    else if (command === 'اختر') {
-        if (args.length < 2) return message.reply('اكتب: `!اختر خيار1 خيار2`');
-        const choice = args[Math.floor(Math.random() * args.length)];
-        message.reply(`اخترت: **${choice}**`);
-    }
-
-    else if (command === 'عشوائي') {
-        const max = parseInt(args[0]) || 100;
-        const num = Math.floor(Math.random() * max) + 1;
-        message.reply(`الرقم العشوائي: **${num}**`);
-    }
-
+    // ────────── !سيرفر ──────────
     else if (command === 'سيرفر') {
         const guild = message.guild;
         const embed = new EmbedBuilder()
@@ -136,13 +184,14 @@ client.on('messageCreate', async message => {
             .setTitle(`معلومات سيرفر ${guild.name}`)
             .setThumbnail(guild.iconURL())
             .addFields(
-                { name: 'الاعضاء', value: `${guild.memberCount}`, inline: true },
+                { name: 'الأعضاء', value: `${guild.memberCount}`, inline: true },
                 { name: 'تاريخ الإنشاء', value: guild.createdAt.toLocaleDateString('ar-SA'), inline: true },
             )
             .setTimestamp();
         message.reply({ embeds: [embed] });
     }
 
+    // ────────── !مستخدم ──────────
     else if (command === 'مستخدم') {
         const user = message.author;
         const embed = new EmbedBuilder()
@@ -150,55 +199,11 @@ client.on('messageCreate', async message => {
             .setTitle(`معلومات ${user.username}`)
             .setThumbnail(user.displayAvatarURL())
             .addFields(
-                { name: 'الايدي', value: user.id, inline: true },
+                { name: 'الآيدي', value: user.id, inline: true },
                 { name: 'تاريخ الإنشاء', value: user.createdAt.toLocaleDateString('ar-SA'), inline: true },
             )
             .setTimestamp();
         message.reply({ embeds: [embed] });
-    }
-});
-
-// ===================== الذكاء الاصطناعي (Gemini) =====================
-client.on('messageCreate', async message => {
-    if (message.author.bot) return;
-    if (message.content.startsWith(config.prefix)) return;
-
-    const botMentioned = message.mentions.has(client.user);
-    const nameInMessage = message.content.toLowerCase().includes('sh6h');
-
-    if (!botMentioned && !nameInMessage) return;
-
-    const userMessage = message.content
-        .replace(/<@!?\d+>/g, '')
-        .replace(/sh6h/gi, '')
-        .trim();
-
-    if (!userMessage) return message.reply('أهلاً! كيف أقدر أساعدك؟');
-
-    try {
-        message.channel.sendTyping();
-
-        const response = await fetch(
-            `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${config.geminiKey}`,
-            {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    system_instruction: {
-                        parts: [{ text: 'أنت بوت ديسكورد اسمك SH6H. تتحدث بالعربية فقط. ردودك قصيرة ومفيدة. أنت بوت ألعاب وترفيه.' }]
-                    },
-                    contents: [{ parts: [{ text: userMessage }] }]
-                })
-            }
-        );
-
-        const data = await response.json();
-        const aiReply = data.candidates?.[0]?.content?.parts?.[0]?.text || 'AQ.Ab8RN6IfmXpCdXJLUgl2YPRIJMWu2VAJklpV5J1JBZnLLoD7Eg';
-        message.reply(aiReply.substring(0, 1999));
-
-    } catch (err) {
-        console.error('Gemini Error:', err);
-        message.reply('صار خطأ، جرب مرة ثانية!');
     }
 });
 
